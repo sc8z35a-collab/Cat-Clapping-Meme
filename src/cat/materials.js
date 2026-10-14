@@ -131,7 +131,7 @@ void RE_Direct_Fur(const in IncidentLight directLight, const in vec3 geometryPos
   float s1 = pow(sqrt(max(0.0, 1.0 - th1 * th1)), furExp1);
   float s2 = pow(sqrt(max(0.0, 1.0 - th2 * th2)), furExp2);
   float specMask = smoothstep(-0.15, 0.3, NdotL) * gFurOcc * smoothstep(-1.0, 0.0, dot(T, H));
-  float sparkle = mix(0.45, 1.55, gStrandRand);
+  float sparkle = mix(0.55, 1.4, gStrandRand);
   vec3 furSpec = (furSpec1 * s1 * (furExp1 + 2.0) / (2.0 * PI) * sparkle + furSpec2 * s2 * (furExp2 + 2.0) / (2.0 * PI)) * specMask;
   vec3 furDiffuse = diff * directLight.color * BRDF_Lambert(material.diffuseColor) * gFurOcc;
   // light passing through the hair towards the viewer (backlit halo)

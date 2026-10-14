@@ -1,6 +1,7 @@
 // Offline renderer: deterministic frame stepping in headless Chromium -> PNG frames -> MP4 (+ audio).
 // usage: node tools/render-video.mjs --w 1920 --h 1080 --fps 60 --shells 64 --ss 1 --out media/black-cat-clapping.mp4
-//        [--from 0 --to 13.4] [--frames-dir frames] [--sub 1]   (resumable: existing frames are skipped)
+//        [--from 0 --to 13.4] [--frames-dir frames] [--sub 1] [--encode] [--crf 15]
+//        (resumable: existing frames are skipped; --encode muxes the procedural soundtrack with ffmpeg)
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -65,3 +66,17 @@ Image.fromarray(np.clip(sum(ims)/len(ims)+0.5,0,255).astype(np.uint8)).save(sys.
 await browser.close();
 server.close();
 console.log('frames done');
+
+// ---------------------------------------------------------------- encode (+ procedural soundtrack)
+if (args.encode) {
+  const wav = path.join(dir, 'audio.wav');
+  execFileSync('node', ['tools/render-audio.mjs', '--out', wav], { stdio: 'inherit' });
+  const fadeOut = Math.max(0, to - from - 0.4).toFixed(2);
+  const vf = [`fade=t=in:st=0:d=0.3`, `fade=t=out:st=${fadeOut}:d=0.4`];
+  if (SS > 1) vf.unshift(`scale=${W}:${H}:flags=lanczos`);
+  execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-start_number', String(n0), '-i', `${dir}/f_%05d.png`,
+    '-ss', from.toFixed(3), '-i', wav, '-vf', vf.join(','), '-c:v', 'libx264', '-preset', 'slow', '-crf', String(args.crf || 15),
+    '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-c:a', 'aac', '-b:a', '192k', '-af', `afade=t=out:st=${fadeOut}:d=0.4`,
+    '-shortest', '-movflags', '+faststart', out], { stdio: 'inherit' });
+  console.log(`wrote ${out}`);
+}

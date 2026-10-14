@@ -29,7 +29,8 @@ const STAND = {
   curlL: [22, 30, 16], curlR: [22, 30, 16], spreadL: 0, spreadR: 0, thumbL: [12, 14, 10], thumbR: [12, 14, 10],
 };
 const CLAP_Y = 0.262, CLAP_Z = 0.128;
-const clapOpen = (w) => ({ L: [0.0105 + w, CLAP_Y + 0.003, CLAP_Z - 0.006], R: [-0.0105 - w, CLAP_Y + 0.003, CLAP_Z - 0.006] });
+// open pose: the hands swing apart on an arc around the shoulders (a little up and back)
+const clapOpen = (w) => ({ L: [0.0105 + w, CLAP_Y + 0.002 + w * 0.12, CLAP_Z - 0.004 - w * 0.16], R: [-0.0105 - w, CLAP_Y + 0.002 + w * 0.12, CLAP_Z - 0.004 - w * 0.16] });
 const CLAP_DIR_L = [-0.10, 0.84, 0.53], CLAP_DIR_R = [0.14, 0.82, 0.55];
 const CLAP_PALM_L = [-1, 0.05, 0.12], CLAP_PALM_R = [1, 0.05, 0.12];
 
@@ -79,7 +80,7 @@ function build() {
   // ================================================================ slow claps
   const c0 = T.claps[0];
   const ready = c0 - 0.5;
-  k('handL', ready, clapOpen(0.030).L, 'smooth'); k('handR', ready, clapOpen(0.030).R, 'smooth');
+  k('handL', ready, clapOpen(0.040).L, 'smooth'); k('handR', ready, clapOpen(0.040).R, 'smooth');
   hold('handLSpace', ready, T.clapEnd, [0, 1, 0], 'smooth'); hold('handRSpace', ready, T.clapEnd, [0, 1, 0], 'smooth');
   hold('handLDir', ready, T.clapEnd, CLAP_DIR_L, 'smooth'); hold('handRDir', ready, T.clapEnd, CLAP_DIR_R, 'smooth');
   hold('handLPalm', ready, T.clapEnd, CLAP_PALM_L, 'smooth'); hold('handRPalm', ready, T.clapEnd, CLAP_PALM_R, 'smooth');
@@ -88,7 +89,7 @@ function build() {
   hold('spreadL', ready, T.clapEnd, -2, 'smooth'); hold('spreadR', ready, T.clapEnd, -2, 'smooth');
   hold('thumbL', ready, T.clapEnd, [6, 6, 4], 'smooth'); hold('thumbR', ready, T.clapEnd, [6, 6, 4], 'smooth');
   T.claps.forEach((tc, i) => {
-    const wide = 0.032 - i * 0.0015;
+    const wide = 0.047 - i * 0.002; // big, slow, deliberate claps
     k('handL', tc - 0.30, clapOpen(wide).L, 'outCubic'); k('handR', tc - 0.30, clapOpen(wide).R, 'outCubic');
     k('handL', tc, [0.0118, CLAP_Y, CLAP_Z - 0.004], 'inCubic'); k('handR', tc, [-0.0118, CLAP_Y + 0.002, CLAP_Z + 0.004], 'inCubic');
     k('handL', tc + 0.06, [0.0134, CLAP_Y - 0.0012, CLAP_Z - 0.003], 'outQuad'); k('handR', tc + 0.06, [-0.0134, CLAP_Y + 0.001, CLAP_Z + 0.005], 'outQuad');
