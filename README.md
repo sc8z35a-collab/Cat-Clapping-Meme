@@ -1,5 +1,7 @@
 # 拍手する黒猫 3D — Black Cat Clapping (three.js)
 
+![ニヤッと笑ってゆっくり拍手する黒猫（1920×1080 書き出しの1コマ）](media/poster.jpg)
+
 2026年9月にバズった AI 動画ミーム **「Black Cat Clapping（拍手する黒猫）」** を、
 **家の中（リビング）を舞台にしたリアルタイム 3D アニメーション**として再現したプロジェクトです。
 
@@ -106,15 +108,15 @@ npm run dev          # http://127.0.0.1:5173/ で配信（ファイル変更を�
 
 ## 動画の書き出し
 
-ヘッドレス Chromium（SwiftShader）でフレームを1枚ずつ描画して MP4 にします。途中で止めても続きから再開できます。
+ヘッドレス Chromium（SwiftShader）でフレームを1枚ずつ描画し、手続き生成した効果音と合わせて MP4 にします。
+途中で止めても、もう一度同じコマンドを実行すれば続きから再開できます（CPU 描画なので 1 フレーム約 25 秒、全 804 フレームで約 5〜6 時間）。
 
 ```bash
-node tools/render-video.mjs --w 1920 --h 1080 --fps 60 --shells 48 --frames-dir frames
-node tools/render-audio.mjs --out media/audio.wav
-ffmpeg -framerate 60 -i frames/f_%05d.png -i media/audio.wav \
-  -vf "fade=t=in:st=0:d=0.3,fade=t=out:st=13.0:d=0.4" -c:v libx264 -preset slow -crf 15 \
-  -pix_fmt yuv420p -c:a aac -b:a 192k -shortest -movflags +faststart media/black-cat-clapping.mp4
+node tools/render-video.mjs --w 1920 --h 1080 --fps 60 --shells 48 \
+  --frames-dir frames/final --out media/black-cat-clapping.mp4 --encode
 ```
+`--encode` を付けると、最後に `tools/render-audio.mjs` で効果音（WAV）を作り、ffmpeg で
+H.264（CRF 15）+ AAC の MP4 にまとめます（冒頭 0.3 秒のフェードイン、最後 0.4 秒のフェードアウト付き）。
 
 ## ディレクトリ構成
 
