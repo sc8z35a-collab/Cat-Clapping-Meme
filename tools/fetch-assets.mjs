@@ -6,19 +6,17 @@ import path from 'node:path';
 const API = 'https://api.polyhaven.com';
 const OUT = 'assets/ph';
 const TEXTURES = {
-  marble_01: { res: '2k', maps: ['Diffuse', 'nor_gl', 'arm'] },
   curly_teddy_natural: { res: '1k', maps: ['Diffuse', 'nor_gl', 'arm', 'Displacement'] },
   beige_wall_002: { res: '1k', maps: ['Diffuse', 'nor_gl', 'arm'] },
   poly_wool_herringbone: { res: '1k', maps: ['Diffuse', 'nor_gl', 'arm'] },
   terlenka: { res: '1k', maps: ['Diffuse', 'nor_gl'] },
-  oak_wood_planks: { res: '1k', maps: ['Diffuse', 'nor_gl', 'arm'] },
 };
 const MODELS = {
   Sofa_01: '1k', modern_wooden_cabinet: '1k', potted_plant_02: '1k', potted_plant_04: '1k',
   hanging_picture_frame_02: '1k', modern_ceiling_lamp_01: '1k', ceramic_vase_01: '1k',
   side_table_01: '1k', wicker_basket_01: '1k', standing_picture_frame_01: '1k',
 };
-const HDRIS = { balcony: '2k' };
+const HDRIS = { balcony: '1k' };
 
 async function get(url) {
   for (let i = 0; i < 5; i++) {

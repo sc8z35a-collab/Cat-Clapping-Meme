@@ -1,5 +1,6 @@
 // Loads the generated cat (assets/cat/cat.json + cat.bin) and builds skeleton + geometries.
 import * as THREE from 'three';
+import { assetURL } from '../assets.js';
 
 // De-interleave 4-component packed vectors into standalone 3-component attributes.
 // (InterleavedBufferAttributes that view one shared ArrayBuffer break BufferGeometry.clone.)
@@ -14,7 +15,7 @@ const i16x4Attr = (buf, offset, count) => packedVec3(Int16Array, buf, offset, co
 export async function loadCatAsset(base = 'assets/cat/') {
   const [json, buf] = await Promise.all([
     fetch(base + 'cat.json').then((r) => r.json()),
-    fetch(base + 'cat.bin').then((r) => r.arrayBuffer()),
+    fetch(assetURL(base + 'cat.bin')).then((r) => r.arrayBuffer()),
   ]);
   // ---------------------------------------------------------------- skeleton
   const bones = [];

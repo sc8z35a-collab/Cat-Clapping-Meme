@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Sequence } from './app/sequence.js';
 import { Sound, soundEvents } from './audio.js';
+import { prepareAssets } from './assets.js';
 
 const QUALITY = {
   ultra: { label: 'ULTRA', dpr: () => Math.min(devicePixelRatio || 1, 2), shells: 48 },
@@ -16,7 +17,9 @@ export async function startPlayer(renderer, params) {
   stage.appendChild(renderer.domElement);
   const bar = $('bar').firstElementChild;
   const setProgress = (p) => { bar.style.width = `${Math.round(p * 100)}%`; };
-  setProgress(0.1);
+  setProgress(0.05);
+  await prepareAssets((p) => setProgress(0.05 + 0.6 * p));
+  setProgress(0.65);
   let quality = params.get('q') === 'ultra' ? 'ultra' : 'max';
   renderer.setPixelRatio(QUALITY[quality].dpr());
   const seq = await Sequence.create(renderer, { shells: QUALITY[quality].shells, post: true, exposure: 0.78 });

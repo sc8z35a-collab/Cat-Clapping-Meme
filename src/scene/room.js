@@ -116,7 +116,7 @@ export async function createRoom({ renderer, reflection }) {
   rod.rotation.x = Math.PI / 2; rod.position.set(x0 + 0.13, 2.47, (WIN.z0 + WIN.z1) / 2); group.add(rod);
 
   // ---------------------------------------------------------------- outside (HDRI backdrop)
-  const hdr = await new RGBELoader().loadAsync('assets/ph/balcony/balcony_2k.hdr');
+  const hdr = await new RGBELoader().loadAsync('assets/ph/balcony/balcony_1k.hdr');
   hdr.mapping = THREE.EquirectangularReflectionMapping;
   const outside = new THREE.Mesh(new THREE.SphereGeometry(40, 64, 32), new THREE.MeshBasicMaterial({ map: hdr, side: THREE.BackSide, color: new THREE.Color(1.0, 1.0, 1.0) }));
   outside.rotation.y = Math.PI * 0.35;

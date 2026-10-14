@@ -1,5 +1,6 @@
 // The human's hand (POV) offering a niboshi (dried sardine) to the cat.
 import * as THREE from 'three';
+import { assetURL } from '../assets.js';
 
 function skinMaterial() {
   const mat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.5, sheen: 0.35, sheenRoughness: 0.6, sheenColor: new THREE.Color(0.9, 0.6, 0.5), clearcoat: 0.08, clearcoatRoughness: 0.5 });
@@ -28,7 +29,7 @@ void RE_Direct_Skin(const in IncidentLight directLight, const in vec3 geometryPo
 }
 
 export async function createHumanHand(base = 'assets/human/') {
-  const [json, buf] = await Promise.all([fetch(base + 'human.json').then((r) => r.json()), fetch(base + 'human.bin').then((r) => r.arrayBuffer())]);
+  const [json, buf] = await Promise.all([fetch(base + 'human.json').then((r) => r.json()), fetch(assetURL(base + 'human.bin')).then((r) => r.arrayBuffer())]);
   const geo = (m) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf, m.position, m.vertexCount * 3), 3));

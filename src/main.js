@@ -54,4 +54,8 @@ async function main() {
   app.ready = true;
   if (!params.has('offline')) renderer.setAnimationLoop(() => view.render());
 }
-main();
+main().catch((e) => {
+  console.error(e);
+  const label = document.getElementById('playLabel');
+  if (label) label.textContent = `読み込みに失敗しました（${e.message}）。ページを再読み込みしてください。`;
+});

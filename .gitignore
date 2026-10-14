@@ -5,3 +5,4 @@ node_modules/
 /frames/
 assets/cat/preview.bin
 assets/cat/preview.json
+/build/
