@@ -56,19 +56,20 @@ export const TAIL_TIP = [0, 0.0115, -0.326];
 export const TAIL_R = [0.0128, 0.0120, 0.0112, 0.0104, 0.0096, 0.0088, 0.0080, 0.0071, 0.0056];
 
 // ---------------------------------------------------------------- hands
+export const HAND_S = 1.16; // human-like hands, a bit larger than life on the cat (as in the clip)
 export function handFrame(s) {
   const W = [0.062 * s, 0.182, 0.180];
   const F = norm([0, 0.10, 1]);
   const T = norm([0, 1, -0.10]);
   const P = [-s, 0, 0]; // palm normal (medial)
-  const H = (f, t, p) => add(add(add(W, mul(F, f)), mul(T, t)), mul(P, p));
+  const H = (f, t, p) => add(add(add(W, mul(F, f * HAND_S)), mul(T, t * HAND_S)), mul(P, p * HAND_S));
   return { W, F, T, P, H };
 }
 export const FINGERS = [
-  { name: 'index', f: 0.0400, t: 0.0116, spread: 5, seg: [0.0162, 0.0100, 0.0080], r: [0.0037, 0.0034, 0.0031, 0.0027] },
-  { name: 'middle', f: 0.0420, t: 0.0039, spread: 0.5, seg: [0.0184, 0.0117, 0.0088], r: [0.0038, 0.0035, 0.0032, 0.0028] },
-  { name: 'ring', f: 0.0405, t: -0.0039, spread: -4, seg: [0.0170, 0.0112, 0.0084], r: [0.0036, 0.0033, 0.0030, 0.0026] },
-  { name: 'pinky', f: 0.0365, t: -0.0112, spread: -10, seg: [0.0134, 0.0078, 0.0072], r: [0.0032, 0.0029, 0.0027, 0.0023] },
+  { name: 'index', f: 0.0400, t: 0.0116, spread: 5, seg: [0.0162, 0.0100, 0.0080], r: [0.0041, 0.0038, 0.0035, 0.0031] },
+  { name: 'middle', f: 0.0420, t: 0.0039, spread: 0.5, seg: [0.0184, 0.0117, 0.0088], r: [0.0042, 0.0039, 0.0036, 0.0032] },
+  { name: 'ring', f: 0.0405, t: -0.0039, spread: -4, seg: [0.0170, 0.0112, 0.0084], r: [0.0040, 0.0037, 0.0034, 0.0030] },
+  { name: 'pinky', f: 0.0365, t: -0.0112, spread: -10, seg: [0.0134, 0.0078, 0.0072], r: [0.0035, 0.0032, 0.0030, 0.0026] },
 ];
 const CURL = [deg(6), deg(10), deg(8)];
 
@@ -81,14 +82,14 @@ export function fingerJoints(s) {
     const pts = [p];
     for (let i = 0; i < 3; i++) {
       const bent = norm(add(mul(dir, Math.cos(CURL[i])), mul(P, Math.sin(CURL[i]))));
-      p = add(p, mul(bent, fd.seg[i]));
+      p = add(p, mul(bent, fd.seg[i] * HAND_S));
       dir = bent;
       pts.push(p);
     }
     out[fd.name] = pts; // [mcp, pip, dip, tip]
   }
   let tdir = norm(add(add(mul(F, 0.80), mul(T, 0.42)), mul(P, 0.42)));
-  const tseg = [0.0170, 0.0126, 0.0100];
+  const tseg = [0.0170, 0.0126, 0.0100].map((v) => v * HAND_S);
   let tp = H(0.0080, 0.0078, 0.0032);
   const tpts = [tp];
   for (let i = 0; i < 3; i++) {
@@ -117,8 +118,9 @@ export const HEAD0 = {
   eye: (s) => hp0(0.0172 * s, 0.0060, 0.0300),
   nose: hp0(0, -0.0060, 0.0560),
 };
+export const EYE_S = 1.10;
 export const HEAD = {
-  eyeR: 0.0105 * HS,
+  eyeR: 0.0105 * HS * EYE_S,
   eye: (s) => hp(0.0172 * s, 0.0060, 0.0300),
   eyeDir: (s) => norm([0.20 * s, 0.03, 1]),
   nose: hp(0, -0.0060, 0.0560),
@@ -144,12 +146,16 @@ export function buildPrimitives() {
   const awayFromNoseDown = (p) => { const d = awayFromNose(p); return norm([d[0] * 1.2, d[1] - 0.9, d[2] - 0.3]); };
 
   // ---- torso
-  add_(ellipsoid([0, 0.112, -0.050], [0.050, 0.047, 0.052]), { bone: 'pelvis', k: 0.022, fur: 0.0066, comb: DOWN_BACK });
-  add_(ellipsoid([0, 0.160, -0.031], [0.054, 0.050, 0.054]), { bone: 'spine1', k: 0.024, fur: 0.0066, comb: DOWN_BACK });
-  add_(ellipsoid([0, 0.208, -0.024], [0.052, 0.050, 0.051]), { bone: 'spine2', k: 0.024, fur: 0.0062, comb: DOWN_BACK });
-  add_(ellipsoid([0, 0.255, -0.010], [0.054, 0.058, 0.051]), { bone: 'chest', k: 0.024, fur: 0.0060, comb: DOWN_BACK });
-  add_(ellipsoid([0, 0.262, 0.020], [0.039, 0.046, 0.029]), { bone: 'chest', k: 0.018, fur: 0.0074, comb: () => norm([0, -1, 0.15]) });
-  add_(roundCone([0, 0.292, -0.012], [0, 0.338, -0.002], 0.0405, 0.0335), { bone: 'neck', k: 0.018, fur: 0.0072, comb: () => norm([0, -1, -0.1]) });
+  // pear-shaped when upright: narrow ribcage, round belly ("primordial pouch"), wide haunches
+  add_(ellipsoid([0, 0.110, -0.046], [0.060, 0.050, 0.058]), { bone: 'pelvis', k: 0.024, fur: 0.0072, comb: DOWN_BACK });
+  add_(ellipsoid([0, 0.158, -0.026], [0.059, 0.052, 0.061]), { bone: 'spine1', k: 0.026, fur: 0.0072, comb: DOWN_BACK });
+  add_(ellipsoid([0, 0.132, 0.012], [0.050, 0.044, 0.040]), { bone: 'spine1', k: 0.030, fur: 0.0078, comb: DOWN_BACK });
+  add_(ellipsoid([0, 0.208, -0.022], [0.052, 0.050, 0.056]), { bone: 'spine2', k: 0.026, fur: 0.0068, comb: DOWN_BACK });
+  add_(ellipsoid([0, 0.255, -0.010], [0.047, 0.058, 0.053]), { bone: 'chest', k: 0.026, fur: 0.0066, comb: DOWN_BACK });
+  // chest ruff (longer fur) and the thick nape
+  add_(ellipsoid([0, 0.262, 0.022], [0.040, 0.050, 0.032]), { bone: 'chest', k: 0.018, fur: 0.0105, comb: () => norm([0, -1, 0.15]) });
+  add_(roundCone([0, 0.288, -0.010], [0, 0.340, 0.002], 0.0470, 0.0410), { bone: 'neck', k: 0.024, fur: 0.0100, comb: () => norm([0, -1, -0.1]) });
+  add_(ellipsoid([0, 0.320, -0.030], [0.036, 0.030, 0.030]), { bone: 'neck', k: 0.020, fur: 0.0095, comb: () => norm([0, -0.6, -1]) });
 
   // ---- head (relative to HO)
   add_(ellipsoid(hp0(0, 0, -0.003), [0.0350, 0.0310, 0.0352]), { bone: 'head', k: 0.012, fur: 0.0036, comb: awayFromNose });
@@ -188,10 +194,10 @@ export function buildPrimitives() {
   // ---- arms
   for (const s of [1, -1]) {
     const S = s > 0 ? 'L' : 'R';
-    add_(ellipsoid([0.030 * s, 0.282, -0.014], [0.020, 0.028, 0.026]), { bone: 'clav' + S, k: 0.016, sigma: 0.004, fur: 0.0058, comb: DOWN_BACK });
+    add_(ellipsoid([0.026 * s, 0.284, -0.012], [0.019, 0.030, 0.028]), { bone: 'clav' + S, k: 0.018, sigma: 0.004, fur: 0.0058, comb: DOWN_BACK });
     const sh = [0.041 * s, 0.279, 0.008], el = [0.072 * s, 0.212, 0.088], wr = [0.062 * s, 0.182, 0.180];
-    add_(roundCone(sh, el, 0.0172, 0.0124), { bone: 'upperArm' + S, k: 0.010, sigma: 0.0022, fur: 0.0050, comb: () => norm(sub(el, sh)) });
-    add_(roundCone(el, sub(wr, mul(norm(sub(wr, el)), 0.002)), 0.0121, 0.0090), { bone: 'foreArm' + S, k: 0.004, sigma: 0.0022, fur: 0.0042, comb: () => norm(sub(wr, el)) });
+    add_(roundCone(sh, el, 0.0198, 0.0146), { bone: 'upperArm' + S, k: 0.010, sigma: 0.0022, fur: 0.0050, comb: () => norm(sub(el, sh)) });
+    add_(roundCone(el, sub(wr, mul(norm(sub(wr, el)), 0.002)), 0.0142, 0.0104), { bone: 'foreArm' + S, k: 0.004, sigma: 0.0022, fur: 0.0042, comb: () => norm(sub(wr, el)) });
     buildHand(s, add_);
   }
 
@@ -199,7 +205,7 @@ export function buildPrimitives() {
   for (const s of [1, -1]) {
     const S = s > 0 ? 'L' : 'R';
     const hip = [0.032 * s, 0.108, -0.044], knee = [0.043 * s, 0.080, 0.032], hock = [0.038 * s, 0.0165, -0.050], ball = [0.037 * s, 0.0125, 0.020];
-    add_(ellipsoidAlong([0.036 * s, 0.094, -0.014], sub(knee, hip), [0.024, 0.050, 0.033], { up: [s, 0, 0] }), { bone: 'thigh' + S, k: 0.020, fur: 0.0066, comb: () => norm([0, -1, -0.5]) });
+    add_(ellipsoidAlong([0.040 * s, 0.092, -0.012], sub(knee, hip), [0.029, 0.054, 0.036], { up: [s, 0, 0] }), { bone: 'thigh' + S, k: 0.022, fur: 0.0072, comb: () => norm([0, -1, -0.5]) });
     add_(roundCone(knee, hock, 0.0128, 0.0088), { bone: 'shin' + S, k: 0.004, fur: 0.0048, comb: () => norm(sub(hock, knee)) });
     add_(sphere([0.038 * s, 0.0145, -0.0535], 0.0094), { bone: 'foot' + S, k: 0.007, fur: 0.0040, comb: () => norm([0, -0.3, 1]) });
     add_(roundCone(hock, ball, 0.0088, 0.0098), { bone: 'foot' + S, k: 0.007, fur: 0.0040, comb: () => norm(sub(ball, hock)) });
@@ -220,7 +226,7 @@ export function buildPrimitives() {
   // ---- carving: eye sockets (almond), nostrils, lip line
   const carveStart = P.length;
   for (const s of [1, -1]) {
-    add_(ellipsoid(HEAD0.eye(s), [0.0114, 0.0093, 0.0112], { m: rotXYZ(0, 0, -11 * s) }), { op: 'sub', bone: 'head', k: 0.0018, mat: 'lid' });
+    add_(ellipsoid(HEAD0.eye(s), [0.0114 * EYE_S, 0.0098 * EYE_S, 0.0112 * EYE_S], { m: rotXYZ(0, 0, -11 * s) }), { op: 'sub', bone: 'head', k: 0.0018, mat: 'lid' });
     add_(sphere(hp0(0.0029 * s, -0.0072, 0.0602), 0.00115), { op: 'sub', bone: 'head', k: 0.0007, mat: 'nose' });
   }
   // Cat lip line: philtrum + two curved strokes (shallow groove)
@@ -241,26 +247,26 @@ function buildHand(s, add_) {
   const J = fingerJoints(s);
   const skin = { fur: 0, mat: 'skin', comb: () => F };
   // wrist
-  add_(roundCone(H(-0.010, 0, 0), H(0.006, 0, 0.0006), 0.0090, 0.0086), { bone: 'hand' + S, k: 0.006, ...skin });
+  add_(roundCone(H(-0.012, 0, 0), H(0.006, 0, 0.0006), 0.0100 * HAND_S, 0.0088 * HAND_S), { bone: 'hand' + S, k: 0.006, ...skin });
   // metacarpals fanning out to the knuckles -> organic palm
   const wristT = [0.0040, 0.0013, -0.0013, -0.0040];
   FINGERS.forEach((fd, i) => {
     const a = H(0.006, wristT[i], 0.0008);
     const b = J[fd.name][0];
-    add_(roundCone(a, b, 0.0050, fd.r[0] * 1.08), { bone: 'hand' + S, k: 0.0060, ...skin });
+    add_(roundCone(a, b, 0.0050 * HAND_S, fd.r[0] * 1.08 * HAND_S), { bone: 'hand' + S, k: 0.0060 * HAND_S, ...skin });
   });
   // palm pads
-  add_(ellipsoidAlong(H(0.0145, 0.0082, 0.0040), add(add(mul(F, 0.62), mul(T, 0.48)), mul(P, 0.2)), [0.0066, 0.0110, 0.0052], { up: P }), { bone: 'thumb0' + S, k: 0.0045, ...skin });
-  add_(ellipsoidAlong(H(0.0210, -0.0098, 0.0028), F, [0.0050, 0.0125, 0.0042], { up: P }), { bone: 'hand' + S, k: 0.0045, ...skin });
-  add_(ellipsoidAlong(H(0.0362, 0.0004, 0.0030), T, [0.0040, 0.0138, 0.0036], { up: P }), { bone: 'hand' + S, k: 0.0045, ...skin });
+  add_(ellipsoidAlong(H(0.0145, 0.0082, 0.0040), add(add(mul(F, 0.62), mul(T, 0.48)), mul(P, 0.2)), [0.0066 * HAND_S, 0.0110 * HAND_S, 0.0052 * HAND_S], { up: P }), { bone: 'thumb0' + S, k: 0.0045, ...skin });
+  add_(ellipsoidAlong(H(0.0210, -0.0098, 0.0028), F, [0.0050 * HAND_S, 0.0125 * HAND_S, 0.0042 * HAND_S], { up: P }), { bone: 'hand' + S, k: 0.0045, ...skin });
+  add_(ellipsoidAlong(H(0.0362, 0.0004, 0.0030), T, [0.0040 * HAND_S, 0.0138 * HAND_S, 0.0036 * HAND_S], { up: P }), { bone: 'hand' + S, k: 0.0045, ...skin });
   for (const fd of FINGERS) {
     const pts = J[fd.name];
     const parts = [];
-    for (let i = 0; i < 3; i++) parts.push(Object.assign(roundCone(pts[i], pts[i + 1], fd.r[i], fd.r[i + 1]), { bone: `${fd.name}${i}${S}`, ...skin, nail: i === 2 }));
+    for (let i = 0; i < 3; i++) parts.push(Object.assign(roundCone(pts[i], pts[i + 1], fd.r[i] * HAND_S, fd.r[i + 1] * HAND_S), { bone: `${fd.name}${i}${S}`, ...skin, nail: i === 2 }));
     add_(chain(parts, 0.0007), { bone: `${fd.name}0${S}`, k: 0.0034, ...skin });
   }
   const tp = J.thumb;
-  const tr = [0.0050, 0.0045, 0.0041, 0.0034];
+  const tr = [0.0050, 0.0045, 0.0041, 0.0034].map((v) => v * HAND_S);
   const tparts = [];
   for (let i = 0; i < 3; i++) tparts.push(Object.assign(roundCone(tp[i], tp[i + 1], tr[i], tr[i + 1]), { bone: `thumb${i}${S}`, ...skin, nail: i === 2 }));
   add_(chain(tparts, 0.0008), { bone: `thumb0${S}`, k: 0.0045, ...skin });

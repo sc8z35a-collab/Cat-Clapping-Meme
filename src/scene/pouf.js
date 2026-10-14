@@ -16,13 +16,14 @@ export function createPouf({ radius = 0.215, height = 0.43, rTop = 0.075, rBot =
   const geo = new THREE.LatheGeometry(pts, 220);
   // physical UVs: u around (circumference), v along profile arc length; one texture tile = 0.18 m
   const tile = 0.18;
+  const TILES_AROUND = Math.round((2 * Math.PI * radius) / tile);
   const arc = [0];
   for (let i = 1; i < pts.length; i++) arc.push(arc[i - 1] + pts[i].distanceTo(pts[i - 1]));
   const uv = geo.getAttribute('uv');
   const segs = 220;
   for (let i = 0; i <= segs; i++) for (let j = 0; j < pts.length; j++) {
     const k = i * pts.length + j;
-    uv.setXY(k, ((i / segs) * 2 * Math.PI * Math.max(pts[j].x, 0.05)) / tile, arc[j] / tile);
+    uv.setXY(k, (i / segs) * TILES_AROUND, arc[j] / tile);
   }
   geo.computeVertexNormals();
   const base = 'assets/ph/curly_teddy_natural/curly_teddy_natural_';

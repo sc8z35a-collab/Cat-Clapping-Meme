@@ -28,7 +28,7 @@ const field = makeField(prims);
 lap(`primitives: ${prims.length}`);
 
 // ---------------------------------------------------------------- mesh
-const bbMin = [-0.125, -0.002, -0.345], bbMax = [0.125, 0.475, 0.205];
+const bbMin = [-0.135, -0.002, -0.345], bbMax = [0.135, 0.48, 0.30];
 const raw = meshField(field, { min: bbMin, max: bbMax, voxel: VOXEL, log });
 let { positions, indices } = compact(raw.positions, largestComponents(raw.indices, raw.positions.length / 3, 1));
 lap(`surface nets: ${positions.length / 3} verts, ${indices.length / 3} tris`);
@@ -147,7 +147,7 @@ const body = {
   furIndex: put(furIndex), furIndexCount: furIndex.length,
   furScale: 0.0102,
 };
-const rigid = (m, bone) => ({ vertexCount: m.positions.length / 3, indexCount: m.indices.length, position: put(m.positions), normal: put(toI16(m.normals)), index: put(m.indices), bone });
+const rigid = (m, bone) => ({ vertexCount: m.positions.length / 3, indexCount: m.indices.length, position: put(m.positions), normal: put(toI16(m.normals)), index: put(m.indices), ...(m.tdata ? { tdata: put(m.tdata) } : {}), bone });
 const teeth = { upper: rigid(teethU, 'head'), lower: rigid(teethL, 'jaw') };
 const lipsOut = {
   vertexCount: lips.positions.length / 3, indexCount: lips.indices.length, bone: 'head',

@@ -32,7 +32,7 @@ export class World {
     this.reflection = new PlanarReflection({ scale: 0.5 });
     this.room = await createRoom({ renderer: r, reflection: this.reflection });
     this.scene.add(this.room.group);
-    this.cat = await Cat.create({ shells: this.opts.shells });
+    this.cat = await Cat.create({ shells: this.opts.shells, debug: this.opts.debug || 0 });
     this.scene.add(this.cat.group);
     this.cat.fur.layers.set(LAYER_DETAIL);
     this.cat.whiskers.layers.set(LAYER_DETAIL);

@@ -158,6 +158,13 @@ export function buildTeeth(surf, which, log = () => {}, simplifier = null) {
   const inset = (which === 'upper' ? 0.0015 : 0.0026) * HS;
   const prims = [];
   const info = [];
+  // deterministic per-tooth irregularity (real teeth are never a perfect row of piano keys)
+  let seed = which === 'upper' ? 0x9e3779b9 : 0x85ebca6b;
+  const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const sdRoundBox = (px, py, pz, hx, hy, hz, r) => {
+    const qx = Math.abs(px) - hx, qy = Math.abs(py) - hy, qz = Math.abs(pz) - hz;
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, Math.max(qy, qz)), 0) - r;
+  };
   for (const s of [1, -1]) {
     let arc = 0.00008;
     for (let k = 0; k < table.length; k++) {
@@ -169,26 +176,40 @@ export function buildTeeth(surf, which, log = () => {}, simplifier = null) {
       while (acc < target && x < GRIN.W * 1.3) { x += 0.00005; const q = archPoint(surf, x * s, inset).p; acc += Math.hypot(q[0] - prev[0], q[2] - prev[2]); prev = q; }
       arc += w + 0.00016;
       const { p, n } = archPoint(surf, x * s, inset);
-      const tdir = norm(cross([0, 1, 0], n));
       const up = which === 'upper' ? 1 : -1;
+      // small random tilt about the labial normal, vertical step and protrusion
+      const tilt = (rnd() - 0.5) * (k < 2 ? 4.0 : 6.0) * Math.PI / 180;
+      const dy = (rnd() - 0.5) * 0.00020 * HS, dz = (rnd() - 0.4) * 0.00022 * HS;
+      const tdir0 = norm(cross([0, 1, 0], n));
+      const tdir = norm(add(mul(tdir0, Math.cos(tilt)), mul([0, 1, 0], Math.sin(tilt))));
+      const yax = norm(cross(n, tdir));
       // crown reaches from slightly past the bite line to just under the lip roll
       const edgeY = which === 'upper' ? GRIN.upper(p[0]) : GRIN.lower(p[0]);
       const reach = Math.abs(edgeY - p[1]) + 0.0014;
-      const below = 0.00035; // overbite overlap past the bite line
+      const below = 0.00035 + (k === 2 ? 0.0002 : 0); // overbite overlap past the bite line
       const total = reach + below;
-      const cy = p[1] + up * (reach - below) / 2;
-      const c = [p[0] - n[0] * thick * 0.5, cy, p[2] - n[2] * thick * 0.5];
-      const m = [tdir[0], tdir[1], tdir[2], 0, 1, 0, n[0], n[1], n[2]];
-      const crown = roundBox(c.map((v, i) => v + HO[i]), [w / 2 - 0.00085, total / 2 - 0.0007, thick / 2 - 0.0007], 0.00068, { m });
+      const cy = p[1] + up * (reach - below) / 2 + dy;
+      const c = [p[0] - n[0] * thick * 0.5 + n[0] * dz, cy, p[2] - n[2] * thick * 0.5 + n[2] * dz];
+      const m = [tdir[0], tdir[1], tdir[2], yax[0], yax[1], yax[2], n[0], n[1], n[2]];
+      const cw = [c[0] + HO[0], c[1] + HO[1], c[2] + HO[2]];
+      const hx = w / 2 - 0.00085, hy = total / 2 - 0.0007, hz = thick / 2 - 0.0007;
+      const taper = 0.16 + rnd() * 0.06; // crowns narrow towards the gum line
+      const crown = custom(cw, Math.hypot(hx, hy, hz) + 0.001, (X, Y, Z) => {
+        const dx = X - cw[0], dy_ = Y - cw[1], dz_ = Z - cw[2];
+        const lx = m[0] * dx + m[1] * dy_ + m[2] * dz_, ly = m[3] * dx + m[4] * dy_ + m[5] * dz_, lz = m[6] * dx + m[7] * dy_ + m[8] * dz_;
+        const tc = clamp((up * ly) / (hy + 0.0007) * 0.5 + 0.5, 0, 1); // 0 = incisal edge, 1 = cervical
+        const sx = 1 - taper * tc * tc;
+        return sdRoundBox(lx / sx, ly, lz, hx, hy, hz, 0.00068) * sx;
+      });
       // labial bulge
-      const bulge = ellipsoid([c[0] + n[0] * thick * 0.18 + HO[0], cy + HO[1], c[2] + n[2] * thick * 0.18 + HO[2]], [w * 0.42, total * 0.47, thick * 0.42], { m });
+      const bulge = ellipsoid([c[0] + n[0] * thick * 0.18 + HO[0], cy + HO[1], c[2] + n[2] * thick * 0.18 + HO[2]], [w * 0.40, total * 0.47, thick * 0.42], { m });
       const isCanine = k === 2;
       let tipPrim = null;
       if (isCanine) {
         const tipY = p[1] - up * (below + 0.0003);
         tipPrim = sphere([p[0] - n[0] * thick * 0.35 + HO[0], tipY + HO[1], p[2] - n[2] * thick * 0.35 + HO[2]], 0.0009);
       }
-      const parts = [crown, bulge, ...(tipPrim ? [tipPrim] : [])];
+      const edgeJit = (rnd() - 0.5) * 0.00012;
       const tooth = custom(crown.bc, crown.br + 0.002, (X, Y, Z) => {
         let d = Math.min(crown.d(X, Y, Z), bulge.d(X, Y, Z) + 0.00005);
         if (tipPrim) {
@@ -196,13 +217,13 @@ export function buildTeeth(surf, which, log = () => {}, simplifier = null) {
           const kk = 0.0016, hh = Math.max(kk - Math.abs(d - t), 0) / kk;
           d = Math.min(d, t) - hh * hh * kk * 0.25;
         }
-        // flatten the incisal edge (slightly rounded)
-        const edge = up * ((p[1] + HO[1]) - Y) - below;
+        // flatten the incisal edge (slightly rounded, a little uneven from tooth to tooth)
+        const edge = up * ((p[1] + HO[1] + dy) - Y) - below + edgeJit;
         const kk = 0.0004, hh = Math.max(kk - Math.abs(d - edge), 0) / kk;
         return Math.max(d, edge) + hh * hh * kk * 0.25;
       });
       prims.push(Object.assign(tooth, { k: 0 }));
-      info.push({ x: p[0], y: p[1], z: p[2], w, h: hgt, k });
+      info.push({ x: p[0], y: p[1], z: p[2], w, h: hgt, k, c, tdir, rand: rnd() });
     }
   }
   const field = makeField(prims);
@@ -216,5 +237,20 @@ export function buildTeeth(surf, which, log = () => {}, simplifier = null) {
     const c = compact(positions, simp, [{ data: normals, size: 3 }]);
     positions = c.positions; indices = c.indices; normals = c.extra[0];
   }
-  return { positions, normals, indices, info };
+  // per-vertex tooth data: (random tint, signed position across the tooth -1..1)
+  const nv = positions.length / 3;
+  const tdata = new Float32Array(nv * 2);
+  for (let v = 0; v < nv; v++) {
+    const q = [positions[v * 3] - HO[0], positions[v * 3 + 1] - HO[1], positions[v * 3 + 2] - HO[2]];
+    let best = 0, bd = 1e9;
+    for (let i = 0; i < info.length; i++) {
+      const t = info[i];
+      const d = Math.abs(dot(sub(q, t.c), t.tdir)) / (t.w / 2) + Math.abs(q[2] - t.c[2]) * 30;
+      if (d < bd) { bd = d; best = i; }
+    }
+    const t = info[best];
+    tdata[v * 2] = t.rand;
+    tdata[v * 2 + 1] = clamp(dot(sub(q, t.c), t.tdir) / (t.w / 2), -1.2, 1.2);
+  }
+  return { positions, normals, indices, info, tdata };
 }

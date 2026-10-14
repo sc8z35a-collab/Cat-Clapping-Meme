@@ -15,19 +15,20 @@ float vnoise(vec3 p) {
 export function createCatUniforms(strandTex) {
   return {
     strandTex: { value: strandTex },
-    strandFreq: { value: 78.0 },
+    strandFreq: { value: 60.0 },
     furScale: { value: 0.0102 },
     furLengthMul: { value: 1.3 },
     grin: { value: 0.0 },
-    furSpec1: { value: new THREE.Color(0.0058, 0.0060, 0.0066) },
-    furSpec2: { value: new THREE.Color(0.0050, 0.0034, 0.0023) },
+    furSpec1: { value: new THREE.Color(0.0095, 0.0098, 0.0106) },
+    furSpec2: { value: new THREE.Color(0.0072, 0.0050, 0.0034) },
     furExp1: { value: 110.0 },
     furExp2: { value: 28.0 },
     furShift1: { value: -0.10 },
     furShift2: { value: 0.12 },
     furTint: { value: new THREE.Color(0.0125, 0.0115, 0.011) },
     furTipTint: { value: new THREE.Color(1.18, 1.06, 0.96) },
-    strandStretch: { value: 3.2 },
+    furTrans: { value: new THREE.Color(0.16, 0.10, 0.06) },
+    strandStretch: { value: 1.0 }, // >1 elongates strand cells along the comb, but shears wherever the comb bends
     mouthColor: { value: new THREE.Color(0.018, 0.0045, 0.005) },
     furGravity: { value: 0.22 },
     catShadowOffset: { value: 0.0045 },
@@ -87,6 +88,7 @@ uniform float furShift1;
 uniform float furShift2;
 uniform vec3 furTint;
 uniform vec3 furTipTint;
+uniform vec3 furTrans;
 uniform vec3 mouthColor;
 varying float vFurH;
 varying float vFurLen;
@@ -118,7 +120,7 @@ void RE_Direct_Fur(const in IncidentLight directLight, const in vec3 geometryPos
   // --- fur (Kajiya-Kay with two shifted lobes)
   vec3 T = gFurT;
   float TdotL = dot(T, L);
-  T = normalize(T + N * (gStrandRand - 0.5) * 0.35);
+  T = normalize(T + N * (gStrandRand - 0.5) * 0.18);
   float sinTL = sqrt(max(0.0, 1.0 - TdotL * TdotL));
   float wrapNL = saturate((NdotL + 0.45) / 1.45);
   float diff = wrapNL * mix(1.0, sinTL, 0.35);
@@ -129,9 +131,14 @@ void RE_Direct_Fur(const in IncidentLight directLight, const in vec3 geometryPos
   float s1 = pow(sqrt(max(0.0, 1.0 - th1 * th1)), furExp1);
   float s2 = pow(sqrt(max(0.0, 1.0 - th2 * th2)), furExp2);
   float specMask = smoothstep(-0.15, 0.3, NdotL) * gFurOcc * smoothstep(-1.0, 0.0, dot(T, H));
-  float sparkle = mix(0.25, 1.75, gStrandRand);
+  float sparkle = mix(0.45, 1.55, gStrandRand);
   vec3 furSpec = (furSpec1 * s1 * (furExp1 + 2.0) / (2.0 * PI) * sparkle + furSpec2 * s2 * (furExp2 + 2.0) / (2.0 * PI)) * specMask;
   vec3 furDiffuse = diff * directLight.color * BRDF_Lambert(material.diffuseColor) * gFurOcc;
+  // light passing through the hair towards the viewer (backlit halo)
+  float back = saturate(-dot(L, V));
+  float sil = pow(1.0 - saturate(abs(dot(N, V))), 2.5);
+  vec3 trans = furTrans * pow(back, 3.0) * (0.06 + 0.94 * sil) * mix(0.35, 1.0, gFurOcc) * smoothstep(-0.6, 0.1, NdotL);
+  furSpec += trans;
   reflectedLight.directDiffuse += mix(skinDiffuse, furDiffuse, gFurMix);
 #if FUR_DBG != 1
   reflectedLight.directSpecular += mix(skinSpec, furSpec * directLight.color, gFurMix);
@@ -207,24 +214,27 @@ varying vec3 vCombB;`)
   ${shell ? /* glsl */`
   float hrel = vFurH;
   // hairs lie along the comb: stretch strand cells along it
-  vec3 cB = normalize(vCombB + vec3(1e-5));
-  vec3 sq = vStrand - cB * dot(vStrand, cB) * (1.0 - 1.0 / strandStretch);
+  vec3 sq = vStrand;
+  if (strandStretch > 1.001) { vec3 cB = normalize(vCombB + vec3(1e-5)); sq -= cB * dot(vStrand, cB) * (1.0 - 1.0 / strandStretch); }
   vec2 sx = textureLod(strandTex, sq, 0.0).rg;
   gStrandRand = sx.g;
   float cellsPerPx = length(fwidth(sq)) * 16.0;
   float sLen = mix(0.55, 1.0, sx.g);
-  float rad0 = mix(0.62, 0.34, sqrt(hrel));
+  float rad0 = mix(0.50, 0.24, sqrt(hrel));
   float rad = rad0 * (1.0 - pow(clamp(hrel / sLen, 0.0, 1.0), 2.2));
   float fw = max(fwidth(sx.r) * 0.85, 0.03);
   float sharp = smoothstep(rad + fw, rad - fw, sx.r) * step(hrel, sLen);
   float radE = rad0 * (1.0 - pow(clamp(hrel / 0.85, 0.0, 1.0), 2.2));
   float expected = clamp((1.0 - hrel) / 0.45, 0.0, 1.0) * (1.0 - exp(-3.14159 * radE * radE));
-  float cover = mix(sharp, expected, smoothstep(0.35, 1.3, cellsPerPx));
+  // silhouettes: many layers seen edge-on -> keep the fuzz visible
+  float silV = 1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition)));
+  expected *= 1.0 + 1.4 * silV * silV;
+  float cover = mix(sharp, min(expected, 1.0), smoothstep(0.35, 1.3, cellsPerPx));
   cover *= smoothstep(0.00012, 0.0004, vFurLen);
   if (cover < 0.03) discard;
   diffuseColor.a = cover;
-  gFurOcc = mix(0.28, 1.0, pow(hrel, 0.8)) * mix(0.6, 1.0, vFurP.y);
-  vec3 fc = furTint * mix(0.75, 1.3, sx.g) * mix(vec3(1.0), furTipTint, hrel * hrel);
+  gFurOcc = mix(0.14, 1.0, pow(hrel, 1.15)) * mix(0.6, 1.0, vFurP.y);
+  vec3 fc = furTint * mix(0.78, 1.22, sx.g) * mix(vec3(1.0), furTipTint, hrel * hrel);
   diffuseColor.rgb = fc;
   gFurMix = 1.0;
   ` : /* glsl */`
@@ -254,7 +264,7 @@ varying vec3 vCombB;`)
     float m0 = vnoise(q2);
     vec3 g2 = vec3(vnoise(q2 + vec3(e,0,0)) - m0, vnoise(q2 + vec3(0,e,0)) - m0, vnoise(q2 + vec3(0,0,e)) - m0);
     vec3 gv = normalize((viewMatrix * vec4(g * 0.6 + g2 * 0.35, 0.0)).xyz + vec3(1e-6));
-    normal = normalize(normal - (gv - normal * dot(gv, normal)) * 0.22 * skinMask);
+    normal = normalize(normal - (gv - normal * dot(gv, normal)) * 0.09 * skinMask);
   }
   `}
 `)
@@ -265,7 +275,7 @@ varying vec3 vCombB;`)
 #endif
 #if FUR_DBG == 6
   reflectedLight.directDiffuse = vec3(0.0); reflectedLight.directSpecular = vec3(0.0); reflectedLight.indirectSpecular = vec3(0.0);
-  reflectedLight.indirectDiffuse = vec3(vFurH, vFurLen * 200.0, vFurP.x);
+  reflectedLight.indirectDiffuse = vec3(vFurH, vFurLen * 100.0, gStrandRand);
 #endif
 #if FUR_DBG == 7
   reflectedLight.directDiffuse = vec3(0.0); reflectedLight.indirectSpecular = vec3(0.0); reflectedLight.indirectDiffuse = vec3(0.0);
@@ -342,7 +352,7 @@ export function createIrisTexture(size = 512) {
 
 export function createEyeMaterial(irisTex) {
   const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, clearcoat: 1.0, clearcoatRoughness: 0.035, envMapIntensity: 1.0 });
-  mat.userData.uniforms = { irisTex: { value: irisTex }, pupil: { value: new THREE.Vector2(0.20, 0.42) }, irisRadius: { value: 0.0101 } };
+  mat.userData.uniforms = { irisTex: { value: irisTex }, pupil: { value: new THREE.Vector2(0.20, 0.42) }, irisRadius: { value: 0.0101 * 1.08 * 1.10 } };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, mat.userData.uniforms);
     sh.vertexShader = sh.vertexShader
@@ -392,7 +402,7 @@ varying vec3 vEyeViewLocal;`)
 
 // ---------------------------------------------------------------- teeth & lips
 export function createTeethMaterial(grinInfo, head) {
-  const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(0.93, 0.90, 0.83), roughness: 0.20, clearcoat: 0.7, clearcoatRoughness: 0.12, sheen: 0.3, sheenColor: new THREE.Color(0.9, 0.85, 0.75), envMapIntensity: 1.0 });
+  const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(0.90, 0.865, 0.78), roughness: 0.24, clearcoat: 0.6, clearcoatRoughness: 0.14, sheen: 0.3, sheenColor: new THREE.Color(0.9, 0.85, 0.75), envMapIntensity: 1.0 });
   mat.userData.uniforms = {
     mouthOpen: { value: 0 },
     headOrigin: { value: new THREE.Vector3(...head.origin) },
@@ -400,10 +410,11 @@ export function createTeethMaterial(grinInfo, head) {
   };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, mat.userData.uniforms);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vToothPos;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvToothPos = position;');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vToothPos;\nattribute vec2 tdata;\nvarying vec2 vTD;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvToothPos = position;\nvTD = tdata;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
 varying vec3 vToothPos;
+varying vec2 vTD;
 uniform float mouthOpen;
 uniform vec3 headOrigin;
 uniform float grinW;
@@ -420,13 +431,21 @@ uniform float grinS;`)
   if (mouthOpen < 0.01 || hq.y > eU || hq.y < eL || abs(hq.x) > grinW + 0.0004) discard;
 `)
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+  // per-tooth tint (ivory .. slightly warmer), translucent grey-blue incisal edge
+  diffuseColor.rgb *= mix(vec3(0.94, 0.92, 0.88), vec3(1.04, 1.03, 1.0), vTD.x);
   float edge = smoothstep(0.0022, 0.0, abs(hq.y - yBi));
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.64, 0.66), edge * 0.35);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.60, 0.63, 0.67), edge * 0.38);
+  // embrasures between neighbouring crowns + shadow under the lips (towards the gum line)
+  float side = smoothstep(0.62, 1.05, abs(vTD.y));
+  diffuseColor.rgb *= mix(1.0, 0.45, side);
+  float toLip = clamp((hq.y - yBi) / max(1e-5, (hq.y > yBi ? yUp : yLo) - yBi), 0.0, 1.0);
+  diffuseColor.rgb *= mix(1.0, 0.62, smoothstep(0.45, 1.0, toLip * mouthOpen));
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 0.95, 0.84), smoothstep(0.3, 1.0, toLip) * 0.6);
   float cornerShade = mix(1.0, 0.18, smoothstep(0.35, 1.0, uu));
   diffuseColor.rgb *= cornerShade;
 `);
   };
-  mat.customProgramCacheKey = () => 'cat-teeth-v1';
+  mat.customProgramCacheKey = () => 'cat-teeth-v2';
   return mat;
 }
 

@@ -17,7 +17,7 @@ export function meshField(field, { min, max, voxel, block = 16, margin = 0.004, 
     const subset = field.cull(cx, cy, cz, halfDiag + margin);
     if (subset.length === 0) continue;
     const dc = field.evalSubset(cx, cy, cz, subset);
-    if (Math.abs(dc) > halfDiag + margin) continue;
+    if (Math.abs(dc) > (halfDiag + margin) * 1.35) continue; // the blended field is not exactly 1-Lipschitz
     const vals = new Float32Array(S * S * S);
     for (let k = 0; k < S; k++) for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
       const x = min[0] + (bi * B + i) * h, y = min[1] + (bj * B + j) * h, z = min[2] + (bk * B + k) * h;

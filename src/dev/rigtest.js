@@ -52,6 +52,14 @@ export async function startRigTest(renderer, params) {
 
   const rig = new Rig(asset, group);
   const pose = params.get('pose') || 'bind';
+  if (pose === 'curl') {
+    for (const f of ['index', 'middle', 'ring', 'pinky']) { rig.curlFinger('L', f, [30, 40, 20], 5); rig.curlFinger('R', f, [30, 40, 20], 5); }
+    rig.curlFinger('L', 'thumb', [10, 10, 10]);
+  }
+  if (pose === 'handrot') {
+    group.updateMatrixWorld(true);
+    rig.setWorldQuat('handL', rig.handQuat('L', new THREE.Vector3(0.3, 1, 0.8), new THREE.Vector3(-1, 0, 0.1)));
+  }
   if (pose === 'test') {
     rig.setEuler('spine1', [8, 0, 0]);
     rig.setEuler('chest', [-6, 10, 0]);
@@ -88,6 +96,7 @@ export async function startRigTest(renderer, params) {
     face34: { pos: [0.16, 0.40, 0.26], target: [0, 0.375, 0.03], fov: 26 },
     faceside: { pos: [0.30, 0.385, 0.06], target: [0, 0.375, 0.03], fov: 28 },
     hands: { pos: [0.15, 0.32, 0.45], target: [0, 0.24, 0.12], fov: 28 },
+    handL: { pos: [0.22, 0.30, 0.38], target: [0.06, 0.19, 0.21], fov: 24 },
   };
   const v = views[params.get('view') || 'q34'];
   const camera = new THREE.PerspectiveCamera(v.fov, innerWidth / innerHeight, 0.01, 10);

@@ -29,9 +29,10 @@ export class CatController {
     return out.copy(bone.matrixWorld).multiply(_m2.copy(this.restMat[name]).invert());
   }
 
-  update(t, camera) {
+  update(t, camera, opts = {}) {
     const cat = this.cat, B = this.B, rig = this.rig;
     const c = this.choreo.sample(t);
+    if (opts.overrides) Object.assign(c, opts.overrides); // debug: force channel values
     rig.reset();
     const root = cat.group;
     root.updateMatrixWorld(true);
@@ -60,7 +61,8 @@ export class CatController {
         const bone = B[bn];
         bone.updateWorldMatrix(true, false);
         const hp = B.head.getWorldPosition(_v);
-        const want = _v2.copy(camera.position).sub(hp).normalize();
+        const lookPos = opts.lookAt ? camera.position.clone().lerp(opts.lookAt, c.lookTreat || 0) : camera.position;
+        const want = _v2.copy(lookPos).sub(hp).normalize();
         const headQ = B.head.getWorldQuaternion(_q);
         const fwd = new THREE.Vector3(0, 0.05, 1).normalize().applyQuaternion(headQ);
         const delta = new THREE.Quaternion().setFromUnitVectors(fwd, want);
@@ -147,7 +149,7 @@ export class CatController {
     cat.updateLids();
     cat.setPupil(c.pupil);
     root.updateMatrixWorld(true);
-    if (camera) cat.lookEyesAt(camera.position, 1);
+    if (camera) cat.lookEyesAt(opts.lookAt ? camera.position.clone().lerp(opts.lookAt, c.lookTreat || 0) : camera.position, 1);
     return c;
   }
 }

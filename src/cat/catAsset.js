@@ -67,6 +67,7 @@ export async function loadCatAsset(base = 'assets/cat/') {
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf, m.position, m.vertexCount * 3), 3));
     g.setAttribute('normal', i16x4Attr(buf, m.normal, m.vertexCount));
     g.setIndex(new THREE.BufferAttribute(new Uint32Array(buf, m.index, m.indexCount), 1));
+    if (m.tdata !== undefined) g.setAttribute('tdata', new THREE.BufferAttribute(new Float32Array(buf, m.tdata, m.vertexCount * 2), 2));
     return g;
   };
   const teethUpper = rigidGeo(json.teeth.upper);

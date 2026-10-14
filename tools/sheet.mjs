@@ -16,6 +16,7 @@ const server = await startServer(0);
 const port = server.address().port;
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+page.setDefaultTimeout(0);
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error') console.log('[err]', m.text()); });
 await page.goto(`http://127.0.0.1:${port}/index.html?offline=1&${args.q || ''}`);

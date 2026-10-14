@@ -8,7 +8,7 @@ import { createFloor } from './floor.js';
 import { createPouf } from './pouf.js';
 
 export const ROOM = { x0: -2.0, x1: 2.1, z0: -2.25, z1: 2.4, h: 2.6, wall: 0.12 };
-const WIN = { z0: -0.55, z1: 1.35, y0: 0.42, y1: 2.28 };
+const WIN = { z0: -1.95, z1: -0.40, y0: 0.42, y1: 2.28 };
 
 const gltf = new GLTFLoader();
 function loadModel(id) {
@@ -125,10 +125,12 @@ export async function createRoom({ renderer, reflection }) {
 
   // ---------------------------------------------------------------- rug
   const rugBase = 'assets/ph/poly_wool_herringbone/poly_wool_herringbone_';
-  const rug = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.012, 1.55), new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(0.95, 0.88, 0.78), map: tex(rugBase + 'diff_1k.jpg', { srgb: true, repeat: [5, 3.4] }),
-    normalMap: tex(rugBase + 'nor_gl_1k.jpg', { repeat: [5, 3.4] }), roughness: 0.95,
-    sheen: 0.8, sheenRoughness: 0.6, sheenColor: new THREE.Color(0.9, 0.85, 0.78),
+  const rugGeo = new THREE.BoxGeometry(2.3, 0.014, 1.55, 1, 1, 1);
+  const rug = new THREE.Mesh(rugGeo, new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(1.25, 1.08, 0.86), map: tex(rugBase + 'diff_1k.jpg', { srgb: true, repeat: [9, 6] }),
+    normalMap: tex(rugBase + 'nor_gl_1k.jpg', { repeat: [9, 6] }), normalScale: new THREE.Vector2(1.6, 1.6), roughness: 1.0,
+    roughnessMap: tex(rugBase + 'arm_1k.jpg', { repeat: [9, 6] }),
+    sheen: 1.0, sheenRoughness: 0.7, sheenColor: new THREE.Color(0.75, 0.66, 0.55), envMapIntensity: 0.5,
   }));
   rug.position.set(0.25, 0.006, -1.38); rug.receiveShadow = true; group.add(rug);
 
@@ -141,7 +143,7 @@ export async function createRoom({ renderer, reflection }) {
   group.add(place(frame, { x: 0.25, y: 1.42, z: z0 + 0.002 }));
   group.add(place(sideTable, { x: -0.95, z: z0 + 0.36 }));
   group.add(place(vase, { x: -0.95, z: z0 + 0.36, y: 0.548, scale: 0.75 }));
-  group.add(place(plant, { x: -1.55, z: z0 + 0.45, rotY: 0.6, scale: 1.25 }));
+  group.add(place(plant, { x: -1.62, z: z0 + 0.42, rotY: 0.6, scale: 1.25 }));
   group.add(place(cabinet, { x: x1 - 0.3, z: -0.55, rotY: -Math.PI / 2 }));
   {
     cabinet.updateMatrixWorld(true);
@@ -154,17 +156,17 @@ export async function createRoom({ renderer, reflection }) {
 
   // pink teddy pouf behind-left of the cat (as in the video)
   const pouf = createPouf();
-  pouf.position.set(-0.42, 0, -0.46);
+  pouf.position.set(-0.52, 0, -0.62);
   group.add(pouf);
 
   // ---------------------------------------------------------------- lights
-  const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.86, 0.70), 2.4);
-  sun.position.set(-10.0, 6.4, 3.4);
-  sun.target.position.set(0.1, 0.0, 0.0);
+  const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.82, 0.62), 3.0);
+  sun.position.set(-11.0, 6.6, -6.8);
+  sun.target.position.set(0.15, 0.0, 0.25);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   const sc = sun.shadow.camera;
-  sc.left = -2.4; sc.right = 2.4; sc.top = 2.2; sc.bottom = -2.2; sc.near = 6; sc.far = 18;
+  sc.left = -2.6; sc.right = 2.6; sc.top = 2.4; sc.bottom = -2.4; sc.near = 6; sc.far = 22;
   sun.shadow.bias = -0.00025;
   sun.shadow.normalBias = 0.012;
   group.add(sun, sun.target);
@@ -174,12 +176,27 @@ export async function createRoom({ renderer, reflection }) {
   sky.lookAt(0, (WIN.y0 + WIN.y1) / 2 - 0.4, (WIN.z0 + WIN.z1) / 2);
   group.add(sky);
 
-  const pendant = new THREE.PointLight(new THREE.Color(1.0, 0.78, 0.52), 1.2, 0, 2);
+  const pendant = new THREE.PointLight(new THREE.Color(1.0, 0.78, 0.52), 0.0, 0, 2); // daytime: lamp off
   pendant.position.set(0.25, h - 1.173 + 0.15, -1.15);
   group.add(pendant);
+
+  // soft front fill (bounce light) as a narrow, very soft spot aimed at the cat only,
+  // so the glossy floor shows no hot reflection of it
+  const fill = new THREE.SpotLight(new THREE.Color(1.0, 0.93, 0.85), 2.2, 8, 0.2, 1.0, 2);
+  fill.position.set(-0.95, 1.05, 1.15);
+  fill.target.position.set(0, 0.30, 0);
+  group.add(fill, fill.target);
+  // warm practical lamp behind-right of the cat: second rim for the black fur
+  const rim = new THREE.SpotLight(new THREE.Color(1.0, 0.78, 0.55), 3.5, 6, 0.6, 0.85, 2);
+  rim.position.set(1.05, 0.95, -1.45);
+  rim.target.position.set(0, 0.28, 0.0);
+  rim.castShadow = true;
+  rim.shadow.mapSize.set(1024, 1024);
+  rim.shadow.bias = -0.0005; rim.shadow.normalBias = 0.01;
+  group.add(rim, rim.target);
 
   const bounce = new THREE.HemisphereLight(new THREE.Color(0.95, 0.93, 0.9), new THREE.Color(0.55, 0.45, 0.35), 0.15);
   group.add(bounce);
 
-  return { group, floor, pouf, sun, sky, pendant, bounce, outside, hdr, window: WIN };
+  return { group, floor, pouf, sun, sky, pendant, rim, fill, bounce, outside, hdr, window: WIN };
 }

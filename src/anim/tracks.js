@@ -34,7 +34,8 @@ function crVal(p0, p1, p2, p3, t, t0, t1, t2, t3) {
 }
 
 export class Track {
-  // keys: [[time, value, easing?], ...]; easing applies to the segment starting at that key.
+  // keys: [[time, value, easing?], ...]; easing describes how the motion ARRIVES at that key
+  // (it applies to the segment ending at the key). 'cr' = Catmull-Rom spline through the keys.
   constructor(keys, defaultEase = 'cr') {
     const sorted = keys.map(([t, v, e], i) => ({ t, v, e: e || defaultEase, i })).sort((a, b) => a.t - b.t || a.i - b.i);
     // keep the last key written for identical times
@@ -48,11 +49,11 @@ export class Track {
     while (i < K.length - 2 && t >= K[i + 1].t) i++;
     const a = K[i], b = K[i + 1];
     const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
-    if (a.e === 'cr') {
+    if (b.e === 'cr') {
       const p0 = K[Math.max(0, i - 1)], p3 = K[Math.min(K.length - 1, i + 2)];
       return crVal(p0.v, a.v, b.v, p3.v, u, p0.t === a.t ? a.t - 1 : p0.t, a.t, b.t, p3.t === b.t ? b.t + 1 : p3.t);
     }
-    return mixVal(a.v, b.v, (ease[a.e] || ease.smooth)(u));
+    return mixVal(a.v, b.v, (ease[b.e] || ease.smooth)(u));
   }
 }
 
