@@ -1,0 +1,7 @@
+node_modules/
+.cache/
+*.log
+/tmp/
+/frames/
+assets/cat/preview.bin
+assets/cat/preview.json
