@@ -59,6 +59,25 @@ export class World {
       else this.post.setSize(W, H);
     }
   }
+  // Runtime quality switch (see QUALITY in player.js): fur shells, post passes, shadow maps, reflection resolution.
+  applyQuality(q) {
+    if (q.shells !== undefined) this.cat.setShellCount(q.shells);
+    this.post?.setEnabled({ ao: q.ao, dof: q.dof, bloom: q.bloom });
+    if (q.shadow) {
+      const setMap = (light, n) => {
+        if (!light || light.shadow.mapSize.x === n) return;
+        light.shadow.mapSize.set(n, n);
+        if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
+      };
+      setMap(this.room.sun, q.shadow);
+      setMap(this.room.rim, Math.max(256, q.shadow / 4));
+    }
+    if (q.refl && q.refl !== this.reflection.scale) {
+      this.reflection.scale = q.refl;
+      const pr = this.renderer.getPixelRatio();
+      this.reflection.setSize(Math.round(this.width * pr), Math.round(this.height * pr));
+    }
+  }
   render(time = 0) {
     this.scene.updateMatrixWorld(true);
     this.reflection.update(this.renderer, this.scene, this.camera);

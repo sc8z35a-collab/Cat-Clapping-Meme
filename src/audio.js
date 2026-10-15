@@ -130,3 +130,56 @@ export class Sound {
     this.lastT = t;
   }
 }
+
+// Offline mix for video export in the browser: the same events, panning, room reverb and room tone as
+// tools/render-audio.mjs, rendered with OfflineAudioContext (native FFT convolution). Returns an AudioBuffer.
+export async function renderSoundtrack(T, { sampleRate = 48000, duration = T.end, fadeIn = 0.3, fadeOut = 0.4 } = {}) {
+  const OAC = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+  if (!OAC) return null;
+  const n = Math.ceil(duration * sampleRate);
+  const ctx = new OAC(2, n, sampleRate);
+  const bus = ctx.createGain();
+  const conv = ctx.createConvolver();
+  conv.normalize = false;
+  const [L, R] = roomImpulse(sampleRate);
+  const ir = ctx.createBuffer(2, L.length, sampleRate);
+  ir.copyToChannel(L, 0); ir.copyToChannel(R, 1);
+  conv.buffer = ir;
+  const wet = ctx.createGain(); wet.gain.value = 0.22;
+  bus.connect(ctx.destination);
+  conv.connect(wet); wet.connect(ctx.destination);
+  for (const ev of soundEvents(T)) {
+    if (ev.t >= duration) continue;
+    const data = renderEvent(ev.type, sampleRate, ev.seed);
+    const b = ctx.createBuffer(1, data.length, sampleRate);
+    b.copyToChannel(data, 0);
+    const src = ctx.createBufferSource(); src.buffer = b;
+    const g = ctx.createGain(); g.gain.value = ev.gain;
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (pan) { pan.pan.value = ev.type === 'clap' ? -0.06 : 0; src.connect(g); g.connect(pan); pan.connect(bus); pan.connect(conv); }
+    else { src.connect(g); g.connect(bus); g.connect(conv); }
+    src.start(ev.t);
+  }
+  // soft room tone (brownish noise with a slow drift)
+  const tone = ctx.createBuffer(2, n, sampleRate);
+  let s = 12345;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647 * 2 - 1; };
+  for (let c = 0; c < 2; c++) {
+    const d = tone.getChannelData(c);
+    let lp = 0;
+    for (let i = 0; i < n; i++) { lp += 0.02 * (rnd() - lp); d[i] = lp * 0.35 * 0.05 * (1 + 0.15 * Math.sin(i / sampleRate * 0.7)); }
+  }
+  const toneSrc = ctx.createBufferSource(); toneSrc.buffer = tone; toneSrc.connect(ctx.destination); toneSrc.start(0);
+  const out = await ctx.startRendering();
+  // fades (matching the video) + peak normalisation to -1 dBFS
+  let peak = 0;
+  const chans = [out.getChannelData(0), out.getChannelData(1)];
+  for (const d of chans) for (let i = 0; i < n; i++) {
+    const t = i / sampleRate;
+    d[i] *= Math.min(1, t / fadeIn, Math.max(0, (duration - t) / fadeOut));
+    peak = Math.max(peak, Math.abs(d[i]));
+  }
+  const k = peak > 0 ? 0.89 / peak : 1;
+  for (const d of chans) for (let i = 0; i < n; i++) d[i] *= k;
+  return out;
+}

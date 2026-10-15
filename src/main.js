@@ -10,10 +10,11 @@ const params = new URLSearchParams(location.search);
 const offline = params.has('offline');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: offline });
 renderer.setPixelRatio(offline ? 1 : Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+// player: the canvas is sized by CSS (it fills #stage); offline/dev views size it explicitly
+renderer.setSize(innerWidth, innerHeight, !!(offline || params.get('mode')));
 if (offline || params.get('mode')) {
   document.body.appendChild(renderer.domElement);
-  for (const id of ['start', 'ui', 'rotate', 'toast']) document.getElementById(id)?.remove();
+  for (const id of ['start', 'ui', 'rotate', 'toast', 'exportPanel']) document.getElementById(id)?.remove();
 }
 
 const app = { ready: false };
@@ -49,6 +50,17 @@ async function main() {
   app.renderAt = async (t) => {
     view.render(t);
     if (offline) { const gl = renderer.getContext(); const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
+  };
+  // HDR (BT.2100 HLG) frame for tools/render-video.mjs --hdr: I420P10 planes (Y, U, V; little-endian uint16) as base64
+  app.hdrFrame = async (t, fade = 1) => {
+    const post = app.seq.world.post;
+    post.setHDR(true);
+    post.hdrFinish.uniforms.fade.value = fade;
+    view.render(t);
+    const u8 = new Uint8Array(post.readHDRFrame().buffer);
+    let s = '';
+    for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    return btoa(s);
   };
   addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); view.resize(innerWidth, innerHeight); });
   app.ready = true;
