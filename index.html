@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f0c0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="拍手する黒猫ミーム（Black Cat Clapping）をリアルタイム3Dで再現。スマホ横画面・全画面推奨。">
+<title>Black Cat Clapping 3D</title>
+<style>
+  :root {
+    --bg: #0f0c0a; --panel: rgba(22, 17, 14, 0.72); --text: #f3ece4; --muted: #b9ab9c; --accent: #e9c39a;
+    --line: rgba(255, 240, 225, 0.16);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #start { background: radial-gradient(ellipse at 50% 35%, rgba(40,30,24,0.55), rgba(10,8,7,0.92)), var(--bg) center/cover no-repeat; transition: opacity .5s ease; z-index: 20; }
+  #start.hidden { opacity: 0; pointer-events: none; }
+  #start h1 { font-size: clamp(22px, 4.2vw, 40px); margin: 0 0 6px; letter-spacing: .02em; font-weight: 700; }
+  #start p { margin: 4px 0; color: var(--muted); font-size: clamp(12px, 1.8vw, 15px); line-height: 1.6; }
+  #play { margin-top: 18px; width: 92px; height: 92px; border-radius: 50%; border: 1px solid var(--line); background: rgba(233,195,154,0.14);
+    color: var(--text); display: grid; place-items: center; cursor: pointer; transition: transform .2s ease, background .2s ease; }
+  #play:active { transform: scale(.94); }
+  #play[disabled] { opacity: .35; cursor: progress; }
+  #play svg { width: 34px; height: 34px; margin-left: 5px; }
+  #playLabel { margin-top: 12px; font-size: 14px; color: var(--accent); min-height: 1.4em; }
+  #bar { width: min(320px, 70vw); height: 3px; background: var(--line); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+  #bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+  #credit { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); left: 0; right: 0; font-size: 11px; color: rgba(185,171,156,.7); }
+  #rotate { display: none; z-index: 30; background: rgba(10,8,7,.94); }
+  #rotate svg { width: 70px; height: 70px; animation: rot 2.4s ease-in-out infinite; margin-bottom: 14px; }
+  @keyframes rot { 0%, 20% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+  @media (orientation: portrait) and (pointer: coarse) { body.playing #rotate { display: flex; } }
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; padding-top: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background: linear-gradient(to top, rgba(10,8,7,.72), rgba(10,8,7,0)); transition: opacity .35s ease; display: flex; align-items: center; gap: 10px; }
+  #ui.hide { opacity: 0; pointer-events: none; }
+  #ui button { flex: none; height: 38px; min-width: 38px; padding: 0 10px; border-radius: 19px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--text); font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  #ui button svg { width: 18px; height: 18px; }
+  #ui button.on { border-color: rgba(233,195,154,.6); color: var(--accent); }
+  #seek { flex: 1; min-width: 60px; accent-color: #e9c39a; height: 4px; }
+  #time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); min-width: 64px; text-align: right; }
+  #toast { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 15; background: var(--panel);
+    border: 1px solid var(--line); padding: 7px 14px; border-radius: 16px; font-size: 12px; color: var(--text); opacity: 0; transition: opacity .3s ease; pointer-events: none; }
+  #toast.show { opacity: 1; }
+  @media (max-width: 560px) { #ui .wide { display: none; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="start" class="overlay">
+  <h1>拍手する黒猫 <span style="opacity:.6;font-weight:400">— Black Cat Clapping 3D</span></h1>
+  <p>おやつをもらった黒猫が立ち上がり、人間の歯でニヤッと笑い、ゆっくり拍手して、口を押さえ、握手を求める。</p>
+  <p>2026年9月に @merkurianin が投稿したAI動画ミームを、家の中のリアルタイム3Dで再現しました。</p>
+  <button id="play" disabled aria-label="再生"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg></button>
+  <div id="playLabel">読み込み中…</div>
+  <div id="bar"><i></i></div>
+  <div id="credit">横向き・全画面で再生します ／ 3D素材: Poly Haven (CC0)</div>
+</div>
+
+<div id="rotate" class="overlay">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#e9c39a" stroke-width="1.5"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>
+  <div>スマホを横向きにしてください</div>
+</div>
+
+<div id="ui" class="hide">
+  <button id="bReplay" aria-label="最初から"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+  <button id="bPause" aria-label="一時停止"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+  <input id="seek" type="range" min="0" max="1000" value="0" aria-label="シーク">
+  <span id="time">0.0 / 0.0</span>
+  <button id="bSpeed">1×</button>
+  <button id="bCam">POV</button>
+  <button id="bQuality" class="wide">MAX</button>
+  <button id="bSound" aria-label="サウンド">🔊</button>
+  <button id="bFull" aria-label="全画面"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+</div>
+<div id="toast"></div>
+<script type="module" src="dist/app.js"></script>
+</body>
+</html>
