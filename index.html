@@ -11,10 +11,11 @@
 <style>
   :root {
     --bg: #0f0c0a; --panel: rgba(22, 17, 14, 0.72); --text: #f3ece4; --muted: #b9ab9c; --accent: #e9c39a;
-    --line: rgba(255, 240, 225, 0.16);
+    --line: rgba(255, 240, 225, 0.16); --panel-solid: #1a1411;
     color-scheme: dark;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
     font-family: "Hiragino Sans", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif; }
   #stage { position: fixed; inset: 0; touch-action: none; }
@@ -49,7 +50,29 @@
   #toast { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 15; background: var(--panel);
     border: 1px solid var(--line); padding: 7px 14px; border-radius: 16px; font-size: 12px; color: var(--text); opacity: 0; transition: opacity .3s ease; pointer-events: none; }
   #toast.show { opacity: 1; }
-  @media (max-width: 560px) { #ui .wide { display: none; } }
+  @media (max-width: 640px) { #ui .wide, #time { display: none; } }
+  #exportPanel { z-index: 40; background: rgba(10,8,7,.72); }
+  #exportPanel .sheet { width: min(620px, 100%); max-height: 100%; overflow-y: auto; background: var(--panel-solid); border: 1px solid var(--line);
+    border-radius: 16px; padding: 14px 16px; text-align: left; display: grid; gap: 8px; }
+  #exportPanel h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+  .exrow { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
+  .exrow .lab { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .seg button, .exactions button { height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--text); font-size: 13px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { border-color: rgba(233,195,154,.75); color: var(--accent); background: rgba(233,195,154,.10); }
+  .seg button:focus-visible, .exactions button:focus-visible, #ui button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .exstatus { margin: 2px 0 0; font-size: 13px; line-height: 1.5; min-height: 1.5em; }
+  .exstatus b { color: var(--accent); font-weight: 600; }
+  .exnote { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .exbar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .exbar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  #exProgText { margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .exactions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .exactions button.primary { background: rgba(233,195,154,.18); border-color: rgba(233,195,154,.6); color: var(--text); font-weight: 600; }
+  .exactions button[disabled] { opacity: .4; cursor: default; }
+  #exportPanel.busy .seg button { opacity: .5; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { #start, #ui, #toast { transition: none; } #rotate svg { animation: none; } }
 </style>
 </head>
 <body>
@@ -77,11 +100,29 @@
   <span id="time">0.0 / 0.0</span>
   <button id="bSpeed">1×</button>
   <button id="bCam">POV</button>
-  <button id="bQuality" class="wide">MAX</button>
+  <button id="bQuality" aria-label="画質">LOW</button>
+  <button id="bExport" aria-label="動画を書き出す"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 19h14"/></svg><span class="wide">書き出し</span></button>
   <button id="bSound" aria-label="サウンド">🔊</button>
   <button id="bFull" aria-label="全画面"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 </div>
 <div id="toast"></div>
+
+<div id="exportPanel" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+    <h2 id="exTitle">動画を書き出す</h2>
+    <div class="exrow"><span class="lab">解像度</span>
+      <div class="seg" id="exRes"><button data-v="auto">自動（最高）</button><button data-v="2160">4K</button><button data-v="1440">1440p</button><button data-v="1080">1080p</button><button data-v="720">720p</button></div></div>
+    <div class="exrow"><span class="lab">フレームレート</span>
+      <div class="seg" id="exFps"><button data-v="60">60fps</button><button data-v="30">30fps</button></div></div>
+    <div class="exrow"><span class="lab">HDR</span>
+      <div class="seg" id="exHdr"><button data-v="auto">自動</button><button data-v="on">オン</button><button data-v="off">オフ</button></div></div>
+    <p class="exstatus" id="exStatus"></p>
+    <p class="exnote">1コマずつ最高画質（毛64層）で描くので、リアルタイムより時間がかかります（4K 60fps は数分〜十数分）。書き出し中はこの画面を開いたままにしてください。</p>
+    <p class="exnote" id="exNote" hidden>このページ（claude.ai）ではファイルを保存できない場合があります。保存は GitHub Pages 版で行ってください。</p>
+    <div id="exProg" hidden><div class="exbar"><i></i></div><div id="exProgText"></div></div>
+    <div class="exactions"><button id="exStart" class="primary">書き出し開始</button><button id="exSave" class="primary" hidden>保存する</button><button id="exClose">閉じる</button></div>
+  </div>
+</div>
 <script type="module" src="dist/app.js"></script>
 </body>
 </html>
