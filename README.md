@@ -19,7 +19,10 @@
 ## 見かた
 
 ### スマホ（推奨）
-**公開ページ: https://claude.ai/artifact/TdPQyAzW67UxvQmzbb9oqp**（約 46 MB を読み込みます。Wi-Fi 推奨）
+- **GitHub Pages: https://sc8z35a-collab.github.io/Cat-Clapping-Meme/**
+- **claude.ai の公開ページ: https://claude.ai/artifact/TdPQyAzW67UxvQmzbb9oqp**
+
+どちらも約 46 MB を読み込みます（Wi-Fi 推奨）。GitHub のファイル一覧で `index.html` を開いてもソースが表示されるだけなので、上の URL から開いてください。
 
 1. ページを開いて ▶ をタップ → 全画面・横向きで再生が始まります。
 2. 画面をタップすると下に操作バーが出ます。
